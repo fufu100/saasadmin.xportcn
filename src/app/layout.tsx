@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Website Clone",
-  description: "Pixel-perfect website clone",
+  title: "Xport后台管理",
+  description: "Xport Admin",
+  icons: {
+    icon: "/sites/saasadmin-xportcn-com-d4f587c2/shared/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -24,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

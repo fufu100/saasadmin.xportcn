@@ -45,25 +45,29 @@ A reusable template for reverse-engineering any website into a clean, modern Nex
 - **Pixel-perfect emulation** — match the target's spacing, colors, typography exactly
 - **No personal aesthetic changes during emulation phase** — match 1:1 first, customize later
 - **Real content** — use actual text and assets from the target site, not placeholders
+- **Mock API Route Handlers** — model data-driven sections with Next.js Route Handlers (`src/app/api/.../route.ts`) returning realistic mock JSON data rather than hardcoding data arrays in JSX
 - **Beauty-first** — every pixel matters
 
 ## Project Structure
 ```
 src/
   app/              # Next.js routes
+    api/            # Route Handlers (mock API endpoints)
   components/       # React components
     ui/             # shadcn/ui primitives
     icons.tsx       # Extracted SVG icons as React components
+  data/             # Structured mock datasets and fixtures
   lib/
     utils.ts        # cn() utility (shadcn)
-  types/            # TypeScript interfaces
+    api/            # API client and data service functions
+  types/            # TypeScript interfaces (data models and API contracts)
   hooks/            # Custom React hooks
 public/
   images/           # Downloaded images from target site
   videos/           # Downloaded videos from target site
   seo/              # Favicons, OG images, webmanifest
 docs/
-  research/         # Inspection output (design tokens, components, layout)
+  research/         # Inspection output (design tokens, components, layout, API contracts)
   design-references/ # Screenshots and visual references
 scripts/            # Asset download scripts
 ```
@@ -135,12 +139,13 @@ For each distinct UI component, document:
 - [ ] **Z-index layers** — navigation, modals, tooltips, overlays
 - [ ] **Scroll behavior** — infinite scroll, pagination, virtual scrolling
 
-## Phase 4: Technical Stack Analysis
+## Phase 4: Technical Stack & API Analysis
 
 - [ ] **Framework** — React? Vue? Angular? Check `__NEXT_DATA__`, `__NUXT__`, `ng-version`
 - [ ] **CSS approach** — Tailwind (utility classes), CSS Modules, Styled Components, Emotion, vanilla CSS
 - [ ] **State management** — Redux (check DevTools), React Query, Zustand, Pinia
-- [ ] **API patterns** — REST, GraphQL (check network tab for `/graphql` requests)
+- [ ] **API patterns & Endpoints** — REST, GraphQL (inspect Network tab for XHR/fetch calls, endpoints, query parameters, response JSON payloads)
+- [ ] **Data Boundaries** — Identify dynamic sections (lists, pricing tiers, reviews, stats, filters) and design structured API schemas
 - [ ] **Font loading** — Google Fonts, self-hosted, system fonts
 - [ ] **Image strategy** — CDN, lazy loading, srcset, WebP/AVIF
 - [ ] **Animation library** — Framer Motion, GSAP, CSS transitions only
@@ -153,3 +158,4 @@ After inspection, create these files in `docs/research/`:
 3. `LAYOUT_ARCHITECTURE.md` — Page layouts, grid system, responsive behavior
 4. `INTERACTION_PATTERNS.md` — Animations, transitions, hover states
 5. `TECH_STACK_ANALYSIS.md` — What the site uses and our chosen equivalents
+6. `API_CONTRACTS.md` — Captured or designed REST/JSON endpoint specs and mock data schemas

@@ -16,8 +16,8 @@ This is not a two-phase process (inspect then build). You are a **foreman walkin
 The target is whatever page `the target URL or URLs provided by the user` resolves to. Clone exactly what's visible at that URL. Unless the user specifies otherwise, use these defaults:
 
 - **Fidelity level:** Pixel-perfect — exact match in colors, spacing, typography, animations
-- **In scope:** Visual layout and styling, component structure and interactions, responsive design, mock data for demo purposes
-- **Out of scope:** Real backend / database, authentication, real-time features, SEO optimization, accessibility audit
+- **In scope:** Visual layout and styling, component structure and interactions, responsive design, mock data and Next.js Route Handlers (`src/app/api/.../route.ts`) for all data-driven sections (products, pricing, articles, testimonials, user profile, metrics, interactive filters), with realistic client/server data fetching and loading states
+- **Out of scope:** Real production database, full backend authentication/OAuth, real-time webhooks/sockets (unless simulated for UI demo), SEO optimization, accessibility audit
 - **Customization:** None — pure emulation
 
 If the user provides additional instructions (specific fidelity level, customizations, extra context), honor those over the defaults.
@@ -36,6 +36,10 @@ Then assign each target:
 - A screenshot root: `<app-root>/docs/design-references/<site-key>/<page-key>/`.
 - A component root: `<app-root>/src/components/sites/<site-key>/<page-key>/`, with genuinely shared same-site components under `<app-root>/src/components/sites/<site-key>/shared/`.
 - An asset root: `<app-root>/public/sites/<site-key>/<page-key>/`, with genuinely shared same-site assets under `<app-root>/public/sites/<site-key>/shared/`.
+- An API route root: `<app-root>/src/app/api/<site-key>/<page-key>/` (or `<app-root>/src/app/api/` for the first single root clone).
+- A mock data root: `<app-root>/src/data/mock/<site-key>/<page-key>/` (or `<app-root>/src/data/mock/` for root clones).
+- An API service client root: `<app-root>/src/lib/api/<site-key>/` (or `<app-root>/src/lib/api/`).
+- An API type root: `<app-root>/src/types/api/<site-key>/` (or `<app-root>/src/types/api/`).
 - A Next.js route file.
 
 All paths in the remaining phases are relative to that target's `<app-root>`. Before writing, verify that every planned route, artifact root, screenshot root, component root, asset root, and downloader filename is unique or is an explicitly approved shared location.
@@ -143,6 +147,15 @@ The spec file is not optional. It is not a nice-to-have. If you dispatch a build
 
 Every builder agent must verify `npx tsc --noEmit` passes before finishing. After merging worktrees, you verify `npm run build` passes. A broken build is never acceptable, even temporarily.
 
+### 10. Data Separation & Mock API Route Handlers
+
+Never hardcode repeated or dynamic business data (lists, cards, pricing tables, testimonials, metrics, form responses, filters) directly into JSX component bodies.
+Every data-driven section must follow the standard Next.js App Router data pattern:
+- **Type Contract**: Define strict TypeScript interfaces in `src/types/api/` matching the entity.
+- **Mock Dataset**: Save extracted real content as structured JSON / TS records in `src/data/mock/` with references to downloaded local assets.
+- **Route Handler**: Implement `src/app/api/.../route.ts` using `NextResponse.json(...)` that supports query filtering, pagination, and simulated latency (e.g. 100-200ms).
+- **Dual-Access Service Pattern**: Provide a shared service helper in `src/lib/api/` so Server Components can call the data function directly (preventing self-referencing localhost fetch loops during static builds), while Client Components (tabs, filters, forms) fetch from `/api/...` with loading/skeleton states.
+
 ## Phase 1: Reconnaissance
 
 Navigate to the target URL with browser MCP.
@@ -191,6 +204,14 @@ This is a dedicated pass AFTER screenshots and BEFORE anything else. Its purpose
 
 Save all findings to `<artifact-root>/BEHAVIORS.md`. This is your behavior bible — reference it when writing every component spec.
 
+### Network & Data API Inspection
+
+Inspect browser Network activity during initial page load and user interactions (tab switching, filters, search, modal popups):
+- Monitor XHR / Fetch requests using browser MCP (`list_network_requests` / `get_network_request` or window performance entries).
+- **If the target site calls client-side APIs:** Capture endpoint paths, query parameters, request headers, and response JSON payloads into `<artifact-root>/api-contracts/`.
+- **If the target site is static HTML or SSR:** Identify all dynamic data boundaries (product listings, pricing plans, testimonials, metrics/stats, FAQs, author profiles), extract the verbatim text and downloaded asset URLs into structured JSON schemas, and design RESTful endpoints (e.g., `GET /api/pricing`, `GET /api/testimonials`).
+- Document all endpoint contracts, query parameters, and schema structures in `<artifact-root>/API_CONTRACTS.md`.
+
 ### Page Topology
 Map out every distinct section of the page from top to bottom. Give each a working name. Document:
 - Their visual order
@@ -207,10 +228,13 @@ This is sequential per origin. Do it yourself (not delegated to an agent) since 
 
 1. **Merge fonts and shared layout behavior** without deleting requirements of existing routes. Use route layouts when behavior is not truly app-global.
 2. **Merge global CSS carefully**; scope page/site-specific tokens, keyframes, scroll behavior, and utilities under a route wrapper when they could conflict.
-3. **Create namespaced TypeScript interfaces** for the content structures you've observed; reuse existing same-site types only when their contracts match.
-4. **Extract SVG icons** — deduplicate same-site icons under `src/components/sites/<site-key>/shared/icons.tsx`; keep page-only icons in the page component namespace. Name them by visual function (e.g., `SearchIcon`, `ArrowRightIcon`, `LogoIcon`).
-5. **Download assets into the planned namespace** — use the page's uniquely named download script and write into `public/sites/<site-key>/<page-key>/` or the approved same-site shared directory. Never write a generic filename over another page's asset.
-6. Verify every previously existing route still builds, then run `npm run build`.
+3. **Create namespaced TypeScript interfaces** for both content structures and API contracts (`src/types/api/<site-key>/...`).
+4. **Generate structured mock datasets** (`src/data/mock/<site-key>/...`) populated with the verbatim text and local asset paths extracted from the target site.
+5. **Implement Next.js Route Handlers** (`src/app/api/<site-key>/.../route.ts` or root `src/app/api/.../route.ts`) returning `NextResponse.json(...)` with query filtering, pagination, and simulated latency (100-200ms).
+6. **Create shared data service functions** in `src/lib/api/<site-key>/...` so Server Components can call mock data functions directly without loopback HTTP port issues during build/SSG, while Route Handlers call the same functions for client-side fetches.
+7. **Extract SVG icons** — deduplicate same-site icons under `src/components/sites/<site-key>/shared/icons.tsx`; keep page-only icons in the page component namespace. Name them by visual function (e.g., `SearchIcon`, `ArrowRightIcon`, `LogoIcon`).
+8. **Download assets into the planned namespace** — use the page's uniquely named download script and write into `public/sites/<site-key>/<page-key>/` or the approved same-site shared directory. Never write a generic filename over another page's asset.
+9. Verify every previously existing route still builds, then run `npm run build`.
 
 ### Asset Discovery Script Pattern
 
@@ -412,6 +436,13 @@ For each section (or sub-component, if you're breaking it up), create a spec fil
 ## Text Content (verbatim)
 <All text content, copy-pasted from the live site>
 
+## Data Contract & API Integration (if applicable)
+- **Endpoint / Service:** `GET /api/<site-key>/...` or `get<Resource>()` service
+- **Type Interface:** `src/types/api/<site-key>/<Resource>.ts`
+- **Component Strategy:** <Server Component (direct service call) | Client Component ('use client') with fetch + SWR/React Query/useEffect>
+- **Loading / Skeleton State:** <Specific skeleton layout and pulse placeholder structure matching card/list dimensions>
+- **Empty / Error State:** <UI message or illustration when list is empty or request fails>
+
 ## Responsive Behavior
 - **Desktop (1440px):** <layout description>
 - **Tablet (768px):** <what changes — e.g., "maintains 2-column, gap reduces to 16px">
@@ -432,8 +463,10 @@ Based on complexity, dispatch builder agent(s) in worktree(s):
 **What every builder agent receives:**
 - The full contents of its component spec file (inline in the prompt — don't say "go read the spec file")
 - Path to the section screenshot in the page's namespaced screenshot root
-- Which shared components to import (the planned site-scoped icon module, `cn()`, shadcn primitives)
+- Which shared components to import (the planned site-scoped icon module, `cn()`, shadcn primitives, Skeleton UI)
+- The typed API contract or service function import (e.g. `import { getProducts } from '@/lib/api/...'` or `/api/...` fetch hook)
 - The namespaced target file path (e.g., `src/components/sites/<site-key>/<page-key>/HeroSection.tsx`)
+- Instruction to never hardcode data arrays into JSX; consume the typed API or service with realistic skeleton states
 - Instruction to verify with `npx tsc --noEmit` before finishing
 - For responsive behavior: the specific breakpoint values and what changes
 
@@ -456,7 +489,8 @@ After all sections are built and merged, wire the page into the exact destinatio
 
 - Import all section components
 - Implement the page-level layout from your topology doc (scroll containers, column structures, sticky positioning, z-index layering)
-- Connect real content to component props
+- Connect components to their typed API services / Route Handlers, ensuring real content is fetched or passed via typed props
+- Verify dynamic sections (filtering, search, tabs, pagination) interact with mock Route Handlers properly with responsive skeleton loading states
 - Implement page-level behaviors: scroll snap, scroll-driven animations, dark-to-light transitions, intersection observers, smooth scroll (Lenis etc.)
 - Confirm all routes that existed before this run are still present and were not unintentionally changed
 - Verify: `npm run build` passes clean
@@ -473,7 +507,7 @@ After assembly, do NOT declare the clone complete. Take side-by-side comparison 
    - If the spec was wrong: re-extract from browser MCP, update the spec, fix the component
    - If the spec was right but the builder got it wrong: fix the component to match the spec
 5. Test all interactive behaviors: scroll through the page, click every button/tab, hover over interactive elements
-6. Verify smooth scroll feels right, header transitions work, tab switching works, animations play
+6. Verify smooth scroll feels right, header transitions work, tab switching works, animations play, mock APIs respond accurately with skeleton transitions
 
 Only after this visual QA pass is the clone complete.
 
@@ -485,6 +519,8 @@ Before dispatching ANY builder agent, verify you can check every box. If you can
 - [ ] Every CSS value in the spec is from `getComputedStyle()`, not estimated
 - [ ] Interaction model is identified and documented (static / click / scroll / time)
 - [ ] For stateful components: every state's content and styles are captured
+- [ ] For data-driven components: typed API contract and mock Route Handler / service are defined
+- [ ] Loading skeleton structure and dimensions are specified matching real content
 - [ ] For scroll-driven components: trigger threshold, before/after styles, and transition are recorded
 - [ ] For hover states: before/after values and transition timing are recorded
 - [ ] All images in the section are identified (including overlays and layered compositions)
@@ -497,6 +533,8 @@ Before dispatching ANY builder agent, verify you can check every box. If you can
 These are lessons from previous failed clones — each one cost hours of rework:
 
 - **Don't build click-based tabs when the original is scroll-driven (or vice versa).** Determine the interaction model FIRST by scrolling before clicking. This is the #1 most expensive mistake — it requires a complete rewrite, not a CSS fix.
+- **Don't hardcode data arrays directly inside JSX components.** Always separate dynamic and list data into structured mock datasets and Next.js Route Handlers (`src/app/api/.../route.ts`), keeping presentation components cleanly wired to typed data contracts.
+- **Don't perform unconfigured localhost `fetch()` inside Server Components during static builds.** Use shared service functions (`src/lib/api/...`) for direct Server Component calls, and expose `/api/...` route handlers for Client Component interaction.
 - **Don't extract only the default state.** If there are tabs showing "Featured" on load, click Productivity, Creative, Lifestyle and extract each one's cards/content. If the header changes on scroll, capture styles at position 0 AND position 100+.
 - **Don't miss overlay/layered images.** A background watercolor + foreground UI mockup = 2 images. Check every container's DOM tree for multiple `<img>` elements and positioned overlays.
 - **Don't build mockup components for content that's actually videos/animations.** Check if a section uses `<video>`, Lottie, or canvas before building elaborate HTML mockups of what the video shows.
@@ -519,6 +557,7 @@ When done, report:
 - Total sections built
 - Total components created
 - Total spec files written (should match components)
+- Total mock API route handlers created (`src/app/api/**/route.ts`)
 - Total assets downloaded (images, videos, SVGs, fonts)
 - Build status (`npm run build` result)
 - Visual QA results (any remaining discrepancies)
